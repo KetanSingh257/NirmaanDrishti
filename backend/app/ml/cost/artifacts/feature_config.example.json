@@ -1,0 +1,13 @@
+{
+  "features": [
+    "original_cost_cr",
+    "revised_cost_cr",
+    "physical_progress_pct",
+    "previous_progress",
+    "previous_expenditure",
+    "project_age_days",
+    "days_to_original_completion",
+    "days_overdue"
+  ],
+  "categorical": ["agency", "state"]
+}

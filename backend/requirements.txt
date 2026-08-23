@@ -1,0 +1,16 @@
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+sqlalchemy==2.0.52
+pydantic==2.13.4
+pydantic-settings==2.10.1
+python-dotenv==1.1.1
+greenlet==3.2.4
+python-multipart==0.0.20
+httpx==0.28.1
+# Optional: swap DATABASE_URL to PostgreSQL in production
+psycopg2-binary==2.9.10
+# ML integration (used when real model files are present)
+joblib==1.5.1
+numpy==2.2.6
+scikit-learn==1.7.1
+

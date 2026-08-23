@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --bg: #3154ff;
+  --surface: #f6f8ff;
+  --line: rgba(49, 84, 255, 0.14);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #9db0ff transparent;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: #16204a;
+  font-family: Outfit, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(49, 84, 255, 0.18);
+  color: #16204a;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 70px -42px rgba(24, 50, 190, 0.55);
+}
+
+.hairline {
+  border: 1px solid var(--line);
+}
+
+.grid-bg {
+  background-image:
+    radial-gradient(circle at 8% 48%, rgba(255, 204, 51, 0.9) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 94% 32%, rgba(255, 204, 51, 0.9) 0 2px, transparent 2.5px),
+    repeating-radial-gradient(circle at 105% 32%, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 18px);
+  background-size: 14px 14px, 14px 14px, 560px 560px;
+  background-position: left 9rem top 18rem, right 4rem top 10rem, right -12rem top 3rem;
+  background-repeat: no-repeat;
+}
+
+.noise {
+  position: relative;
+}
+
+.noise::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
