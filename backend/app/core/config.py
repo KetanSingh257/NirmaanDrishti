@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     cost_feature_config_path: str = str(ML_DIR / "cost" / "artifacts" / "feature_config.json")
     time_model_path: str = str(ML_DIR / "time" / "artifacts" / "model.pkl")
     time_preprocessor_path: str = str(ML_DIR / "time" / "artifacts" / "preprocessor.pkl")
+    time_feature_config_path: str = str(ML_DIR / "time" / "artifacts" / "feature_config.json")
 
     @property
     def cors_origin_list(self) -> list[str]:

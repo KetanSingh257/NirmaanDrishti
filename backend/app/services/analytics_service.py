@@ -20,25 +20,61 @@ class AnalyticsService:
 
     def _scored(self, db: Session) -> list[dict]:
         rows = self.projects.all_with_updates(db)
+        batch_scores = self.intel.score_many(db, rows)
         out = []
-        for p in rows:
+        for p, scores in zip(rows, batch_scores):
             item = to_out(p)
-            item.update(self.intel.score_only(db, p))
+            item.update(scores)
             item["_project"] = p
             out.append(item)
         return out
 
+    @staticmethod
+    def _classification_counts(rows: list[dict]) -> dict[str, int]:
+        buckets = {"HEALTHY": 0, "WATCH": 0, "AT_RISK": 0, "CRITICAL": 0}
+        for row in rows:
+            status = row["health_status"]
+            if status in buckets:
+                buckets[status] += 1
+        return buckets
+
+    def _risk_trend(self, scored: list[dict], buckets: dict[str, int]) -> list[dict]:
+        """Build monthly counts from each project's latest update by month."""
+        today = date.today()
+        trend = []
+        for i in range(7, -1, -1):
+            month_start = (today.replace(day=1) - timedelta(days=30 * i)).replace(day=1)
+            month_end = (
+                (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+                - timedelta(days=1)
+            )
+            month_rows = [
+                row
+                for row in scored
+                if not row["_project"].updates
+                or row["_project"].updates[-1].update_date <= month_end
+            ]
+            counts = self._classification_counts(month_rows)
+            if i == 0:
+                counts = buckets
+            trend.append(
+                {
+                    "month": month_end.strftime("%b %Y"),
+                    "critical": counts["CRITICAL"],
+                    "at_risk": counts["AT_RISK"],
+                    "watch": counts["WATCH"],
+                    "healthy": counts["HEALTHY"],
+                }
+            )
+        return trend
+
     def dashboard(self, db: Session) -> DashboardResponse:
         scored = self._scored(db)
         total = len(scored)
-        buckets = {"HEALTHY": 0, "WATCH": 0, "AT_RISK": 0, "CRITICAL": 0}
-        at_risk = 0
+        buckets = self._classification_counts(scored)
         value = 0.0
         overrun = 0.0
         for row in scored:
-            buckets[row["health_status"]] = buckets.get(row["health_status"], 0) + 1
-            if row["health_status"] in {"AT_RISK", "CRITICAL"}:
-                at_risk += 1
             value += row["revised_cost_cr"]
             overrun += row.get("predicted_overrun_cr") or 0
 
@@ -48,23 +84,7 @@ class AnalyticsService:
             reverse=True,
         )[:8]
 
-        # Synthetic but stable risk trend (last 8 months) derived from current mix
-        today = date.today()
-        risk_trend = []
-        base_critical = buckets["CRITICAL"]
-        base_risk = buckets["AT_RISK"]
-        for i in range(7, -1, -1):
-            month = (today.replace(day=1) - timedelta(days=30 * i)).strftime("%b %Y")
-            drift = (7 - i) * 0.4
-            risk_trend.append(
-                {
-                    "month": month,
-                    "critical": max(int(base_critical - 3 + drift), 1),
-                    "at_risk": max(int(base_risk - 2 + drift * 0.7), 1),
-                    "watch": buckets["WATCH"],
-                    "healthy": buckets["HEALTHY"],
-                }
-            )
+        risk_trend = self._risk_trend(scored, buckets)
 
         cost_vs_progress = [
             {
@@ -95,7 +115,7 @@ class AnalyticsService:
 
         return DashboardResponse(
             total_projects=total,
-            projects_at_risk=at_risk,
+            projects_at_risk=buckets["AT_RISK"],
             total_project_value_cr=round(value, 1),
             potential_overrun_cr=round(overrun, 1),
             healthy=buckets["HEALTHY"],

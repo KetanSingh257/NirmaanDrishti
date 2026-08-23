@@ -1,0 +1,24 @@
+{
+  "features": [
+    "project_age_days",
+    "physical_progress_pct",
+    "previous_progress",
+    "progress_change",
+    "original_cost_cr",
+    "revised_cost_cr",
+    "cumulative_expenditure_cr",
+    "previous_expenditure",
+    "expenditure_change",
+    "cost_utilization_pct",
+    "expenditure_progress_gap"
+  ],
+  "categorical": [
+    "agency",
+    "state"
+  ],
+  "target": "days_overdue",
+  "model_name": "XGBoost",
+  "mae": 176.89252531822086,
+  "rmse": 330.5619972252878,
+  "r2": 0.823374443167203
+}

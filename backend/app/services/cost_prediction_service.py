@@ -22,9 +22,7 @@ class CostPredictionService:
         ml_out = self._ml.predict(data)
         if ml_out is not None:
             return self._finalize(data, ml_out["predicted_expenditure_cr"], ml_out)
-
-        predicted = self._mock_predict(data)
-        return self._finalize(data, predicted, {"model_name": "XGBoost Cost Regressor", "used_real_model": False})
+        raise RuntimeError("Cost ML model is unavailable or inference failed")
 
     def _mock_predict(self, data: CostPredictRequest) -> float:
         """

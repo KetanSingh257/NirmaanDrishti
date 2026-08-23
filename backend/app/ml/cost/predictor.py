@@ -45,11 +45,28 @@ class CostPredictor:
             predicted_expenditure = float(self._predict_with_model(payload))
             return {
                 "predicted_expenditure_cr": predicted_expenditure,
-                "model_name": type(loader.model).__name__,
+                "model_name": (loader.feature_config or {}).get(
+                    "model_name", type(loader.model).__name__
+                ),
                 "used_real_model": True,
             }
-        except Exception as exc:
-            logger.warning("Real cost model inference failed, falling back: %s", exc)
+        except Exception:
+            logger.exception("Real cost model inference failed")
+            return None
+
+    def predict_many(self, payloads: list[CostPredictRequest]) -> list[dict[str, Any]] | None:
+        if not loader.is_ready:
+            return None
+        try:
+            frame = self._to_feature_frame_many(payloads)
+            values = loader.model.predict(frame)
+            model_name = (loader.feature_config or {}).get("model_name", type(loader.model).__name__)
+            return [
+                {"predicted_expenditure_cr": float(value), "model_name": model_name, "used_real_model": True}
+                for value in values
+            ]
+        except Exception:
+            logger.exception("Batch cost model inference failed")
             return None
 
     def _predict_with_model(self, payload: CostPredictRequest) -> float:
@@ -62,7 +79,7 @@ class CostPredictor:
             3. Call model.predict(X) and return the first value.
         """
         X = self._to_feature_frame(payload)
-        if loader.preprocessor is not None:
+        if loader.preprocessor is not None and not hasattr(loader.model, "named_steps"):
             X = loader.preprocessor.transform(X)
         y = loader.model.predict(X)
         value = y[0] if hasattr(y, "__len__") else y
@@ -103,3 +120,16 @@ class CostPredictor:
             import numpy as np
 
             return np.array([[row[c] for c in numeric]], dtype=float)
+
+    def _to_feature_frame_many(self, payloads: list[CostPredictRequest]):
+        config = loader.feature_config or {}
+        numeric = config.get("features", [])
+        categorical = config.get("categorical", [])
+        columns = list(numeric) + list(categorical)
+        rows = [{column: payload.model_dump().get(column, 0) for column in columns} for payload in payloads]
+        try:
+            import pandas as pd
+            return pd.DataFrame(rows, columns=columns)
+        except ImportError:
+            import numpy as np
+            return np.array([[row[column] for column in columns] for row in rows], dtype=float)

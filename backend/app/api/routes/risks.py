@@ -20,13 +20,14 @@ def list_risks(
 ) -> RiskListResponse:
     rows = projects.all_with_updates(db)
     items: list[RiskItem] = []
-    for p in rows:
-        if state and p.state != state:
-            continue
-        if agency and p.agency != agency:
-            continue
+    filtered_projects = [
+        p
+        for p in rows
+            if (not state or p.state == state) and (not agency or p.agency == agency)
+    ]
+    scored_rows = intel.score_many(db, filtered_projects)
+    for p, scores in zip(filtered_projects, scored_rows):
         base = to_out(p)
-        scores = intel.score_only(db, p)
         status = scores["health_status"]
         if status not in {"AT_RISK", "CRITICAL", "WATCH"}:
             continue

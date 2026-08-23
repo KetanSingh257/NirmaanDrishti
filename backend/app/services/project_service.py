@@ -189,14 +189,14 @@ class ProjectService:
         return base
 
     def enrich_many(self, db: Session, projects: list[Project]) -> list[dict[str, Any]]:
-        intel = None
         from app.services.intelligence_service import IntelligenceService
 
         intel = IntelligenceService()
+        scores = intel.score_many(db, projects)
         out = []
-        for p in projects:
+        for p, project_scores in zip(projects, scores):
             row = to_out(p)
-            row.update(intel.score_only(db, p))
+            row.update(project_scores)
             out.append(row)
         return out
 

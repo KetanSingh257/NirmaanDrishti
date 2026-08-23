@@ -18,12 +18,15 @@ class TimePredictionService:
 
     def predict(self, data: TimePredictRequest) -> TimePredictResponse:
         ml_out = self._ml.predict(data)
+        if not ml_out:
+            raise RuntimeError("Time ML model is unavailable or inference failed")
+        return self._finalize(data, ml_out)
+
+    def _finalize(self, data: TimePredictRequest, ml_out: dict) -> TimePredictResponse:
         mock_delay, remaining_days = self._mock_delay(data)
-        delay = ml_out["predicted_delay_days"] if ml_out else mock_delay
-        model_name = (
-            ml_out["model_name"] if ml_out else "Gradient Boosted Time Model"
-        )
-        used_real = bool(ml_out)
+        delay = ml_out["predicted_delay_days"]
+        model_name = ml_out["model_name"]
+        used_real = True
 
         remaining_days = max(int(remaining_days), 0)
         est = date.today() + timedelta(days=remaining_days)

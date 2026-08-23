@@ -1,0 +1,25 @@
+{
+  "features": [
+    "original_cost_cr",
+    "revised_cost_cr",
+    "physical_progress_pct",
+    "previous_progress",
+    "previous_expenditure",
+    "progress_change",
+    "project_age_days",
+    "days_to_original_completion",
+    "days_overdue",
+    "report_year",
+    "report_month_number",
+    "project_start_year"
+  ],
+  "categorical": [
+    "agency",
+    "state"
+  ],
+  "target": "cumulative_expenditure_cr",
+  "model_name": "Random Forest",
+  "mae": 183.64901659790962,
+  "rmse": 915.5173004510497,
+  "r2": 0.9870477558710774
+}

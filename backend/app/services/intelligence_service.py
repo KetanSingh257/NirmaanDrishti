@@ -36,23 +36,40 @@ class IntelligenceService:
 
     def evaluate(self, db: Session, project: Project) -> IntelligenceResponse:
         derived = derived_fields(project)
+        updates = list(project.updates or [])
+        latest_update = updates[-1] if updates else None
+        previous_progress = derived["previous_progress"]
+        previous_expenditure = derived["previous_expenditure"]
+        current_expenditure = project.current_expenditure_cr
+        progress_change = project.physical_progress_pct - previous_progress
+        expenditure_change = current_expenditure - previous_expenditure
+        utilization = (
+            current_expenditure / project.revised_cost_cr * 100
+            if project.revised_cost_cr
+            else 0.0
+        )
+        latest_date = latest_update.update_date if latest_update else date.today()
         cost_req = CostPredictRequest(
             original_cost_cr=project.original_cost_cr,
             revised_cost_cr=project.revised_cost_cr,
             current_expenditure_cr=project.current_expenditure_cr,
             physical_progress_pct=project.physical_progress_pct,
-            previous_progress=derived["previous_progress"],
-            previous_expenditure=derived["previous_expenditure"],
+            previous_progress=previous_progress,
+            previous_expenditure=previous_expenditure,
             project_age_days=derived["project_age_days"],
             days_to_original_completion=derived["days_to_original_completion"],
             days_overdue=derived["days_overdue"],
             agency=project.agency,
             state=project.state,
             project_id=project.id,
+            progress_change=progress_change,
+            report_year=latest_date.year,
+            report_month_number=latest_date.month,
+            project_start_year=project.start_date.year,
         )
         time_req = TimePredictRequest(
             physical_progress_pct=project.physical_progress_pct,
-            previous_progress=derived["previous_progress"],
+            previous_progress=previous_progress,
             project_age_days=derived["project_age_days"],
             days_to_original_completion=derived["days_to_original_completion"],
             days_overdue=derived["days_overdue"],
@@ -63,6 +80,11 @@ class IntelligenceService:
             agency=project.agency,
             state=project.state,
             project_id=project.id,
+            cumulative_expenditure_cr=current_expenditure,
+            progress_change=progress_change,
+            expenditure_change=expenditure_change,
+            cost_utilization_pct=utilization,
+            expenditure_progress_gap=utilization - project.physical_progress_pct,
         )
         history = [
             {
@@ -70,7 +92,7 @@ class IntelligenceService:
                 "physical_progress_pct": u.physical_progress_pct,
                 "expenditure_cr": u.expenditure_cr,
             }
-            for u in (project.updates or [])
+            for u in updates
         ]
         if not history:
             history = [
@@ -131,6 +153,92 @@ class IntelligenceService:
             "predicted_delay_days": intel.time.predicted_delay_days,
             "insights": intel.key_insights,
         }
+
+    def score_many(self, db: Session, projects: list[Project]) -> list[dict]:
+        requests = [self._requests_for_project(project) for project in projects]
+        cost_requests = [item[0] for item in requests]
+        time_requests = [item[1] for item in requests]
+        cost_outputs = self.cost._ml.predict_many(cost_requests)
+        time_outputs = self.time._ml.predict_many(time_requests)
+        if cost_outputs is None or time_outputs is None:
+            raise RuntimeError("Batch ML inference is unavailable or failed")
+
+        out = []
+        cfg = get_settings()
+        for project, (cost_request, time_request, history), cost_output, time_output in zip(
+            projects, requests, cost_outputs, time_outputs
+        ):
+            cost = self.cost._finalize(
+                cost_request,
+                cost_output["predicted_expenditure_cr"],
+                cost_output,
+            )
+            time = self.time._finalize(time_request, time_output)
+            trend = self.trend.analyze(history)
+            overall = round(
+                cost.risk_score * cfg.cost_risk_weight
+                + time.risk_score * cfg.time_risk_weight
+                + trend.risk_score * cfg.trend_risk_weight,
+                1,
+            )
+            status = health_from_score(overall)
+            out.append(
+                {
+                    "overall_risk_score": overall,
+                    "health_status": status,
+                    "cost_risk_level": cost.risk_level,
+                    "time_risk_level": time.risk_level,
+                    "trend": trend.trend,
+                    "cost_risk_score": cost.risk_score,
+                    "time_risk_score": time.risk_score,
+                    "trend_risk_score": trend.risk_score,
+                    "predicted_overrun_cr": cost.predicted_overrun_cr,
+                    "predicted_delay_days": time.predicted_delay_days,
+                    "insights": self._compose_insights(cost, time, trend, status),
+                }
+            )
+        return out
+
+    def _requests_for_project(self, project: Project):
+        derived = derived_fields(project)
+        updates = list(project.updates or [])
+        latest_update = updates[-1] if updates else None
+        previous_progress = derived["previous_progress"]
+        previous_expenditure = derived["previous_expenditure"]
+        current_expenditure = project.current_expenditure_cr
+        progress_change = project.physical_progress_pct - previous_progress
+        expenditure_change = current_expenditure - previous_expenditure
+        utilization = current_expenditure / project.revised_cost_cr * 100 if project.revised_cost_cr else 0.0
+        latest_date = latest_update.update_date if latest_update else date.today()
+        cost_request = CostPredictRequest(
+            original_cost_cr=project.original_cost_cr, revised_cost_cr=project.revised_cost_cr,
+            current_expenditure_cr=current_expenditure, physical_progress_pct=project.physical_progress_pct,
+            previous_progress=previous_progress, previous_expenditure=previous_expenditure,
+            project_age_days=derived["project_age_days"], days_to_original_completion=derived["days_to_original_completion"],
+            days_overdue=derived["days_overdue"], agency=project.agency, state=project.state, project_id=project.id,
+            progress_change=progress_change, report_year=latest_date.year, report_month_number=latest_date.month,
+            project_start_year=project.start_date.year,
+        )
+        time_request = TimePredictRequest(
+            physical_progress_pct=project.physical_progress_pct, previous_progress=previous_progress,
+            project_age_days=derived["project_age_days"], days_to_original_completion=derived["days_to_original_completion"],
+            days_overdue=derived["days_overdue"], original_cost_cr=project.original_cost_cr,
+            revised_cost_cr=project.revised_cost_cr, start_date=project.start_date,
+            original_completion_date=project.original_completion_date, agency=project.agency, state=project.state,
+            project_id=project.id, cumulative_expenditure_cr=current_expenditure, progress_change=progress_change,
+            expenditure_change=expenditure_change, cost_utilization_pct=utilization,
+            expenditure_progress_gap=utilization - project.physical_progress_pct,
+        )
+        history = [
+            {"date": update.update_date, "physical_progress_pct": update.physical_progress_pct, "expenditure_cr": update.expenditure_cr}
+            for update in updates
+        ]
+        if not history:
+            history = [
+                {"date": project.start_date, "physical_progress_pct": 0, "expenditure_cr": 0},
+                {"date": date.today(), "physical_progress_pct": project.physical_progress_pct, "expenditure_cr": current_expenditure},
+            ]
+        return cost_request, time_request, history
 
     def _compose_insights(self, cost, time, trend, status) -> list[str]:
         notes: list[str] = []

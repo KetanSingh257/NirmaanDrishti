@@ -18,6 +18,10 @@ class CostPredictRequest(BaseModel):
     agency: str = "UNKNOWN"
     state: str = "UNKNOWN"
     project_id: int | None = None
+    progress_change: float = 0.0
+    report_year: float | None = None
+    report_month_number: float | None = None
+    project_start_year: float | None = None
 
 
 class CostPredictResponse(BaseModel):
@@ -46,6 +50,11 @@ class TimePredictRequest(BaseModel):
     agency: str = "UNKNOWN"
     state: str = "UNKNOWN"
     project_id: int | None = None
+    cumulative_expenditure_cr: float = Field(0, ge=0)
+    progress_change: float = 0.0
+    expenditure_change: float = 0.0
+    cost_utilization_pct: float = 0.0
+    expenditure_progress_gap: float = 0.0
 
 
 class TimePredictResponse(BaseModel):

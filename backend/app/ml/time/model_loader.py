@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import json
 from pathlib import Path
 
 from app.core.config import get_settings
@@ -15,8 +16,10 @@ class TimeModelLoader:
         settings = get_settings()
         self.model_path = Path(settings.time_model_path)
         self.preprocessor_path = Path(settings.time_preprocessor_path)
+        self.feature_config_path = Path(settings.time_feature_config_path)
         self._model = None
         self._preprocessor = None
+        self._feature_config: dict | None = None
         self._tried = False
 
     @property
@@ -34,6 +37,11 @@ class TimeModelLoader:
         self._ensure_loaded()
         return self._preprocessor
 
+    @property
+    def feature_config(self) -> dict | None:
+        self._ensure_loaded()
+        return self._feature_config
+
     def _ensure_loaded(self) -> None:
         if self._tried:
             return
@@ -47,6 +55,10 @@ class TimeModelLoader:
             self._model = joblib.load(self.model_path)
             if self.preprocessor_path.exists():
                 self._preprocessor = joblib.load(self.preprocessor_path)
+            if self.feature_config_path.exists():
+                self._feature_config = json.loads(
+                    self.feature_config_path.read_text(encoding="utf-8")
+                )
             logger.info("Loaded time model from %s", self.model_path)
         except Exception as exc:  # pragma: no cover
             logger.warning("Failed to load time model: %s", exc)
