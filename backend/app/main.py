@@ -58,6 +58,14 @@ app.include_router(analytics.router)
 app.include_router(risks.router)
 
 
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "message": "NIRMAANDRISHTI API is running"
+    }
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {
