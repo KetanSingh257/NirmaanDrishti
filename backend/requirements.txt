@@ -12,6 +12,7 @@ psycopg2-binary==2.9.10
 # ML integration (used when real model files are present)
 joblib==1.5.1
 numpy==2.2.6
+pandas==2.2.3
 scikit-learn==1.7.1
 xgboost==3.1.2
 
