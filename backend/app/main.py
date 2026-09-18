@@ -50,14 +50,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     )
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
-app.include_router(dashboard.router)
-app.include_router(projects.router)
-app.include_router(predictions.router)
-app.include_router(intelligence.router)
-app.include_router(analytics.router)
-app.include_router(risks.router)
-
-
 @app.get("/")
 def root():
     return {
@@ -74,3 +66,12 @@ def health() -> dict:
         "version": settings.app_version,
         "environment": settings.environment,
     }
+app.include_router(dashboard.router)
+app.include_router(projects.router)
+app.include_router(predictions.router)
+app.include_router(intelligence.router)
+app.include_router(analytics.router)
+app.include_router(risks.router)
+
+
+
