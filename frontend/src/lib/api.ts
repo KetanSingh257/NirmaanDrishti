@@ -17,8 +17,8 @@ import type {
 } from './types'
 
 export const api = axios.create({
-  baseURL: '/api',
-  timeout: 30000,
+  baseURL: import.meta.env.VITE_API_BASE || '/api',
+  timeout: 60000,
 })
 
 export const fetchDashboard = async () => {
