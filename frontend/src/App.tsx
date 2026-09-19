@@ -14,7 +14,7 @@ import Settings from './pages/Settings'
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
       <Route element={<AppLayout />}>
         <Route path="/app" element={<Navigate to="/app/dashboard" replace />} />
         <Route path="/app/dashboard" element={<Dashboard />} />
@@ -27,7 +27,7 @@ export default function App() {
         <Route path="/app/analytics" element={<Analytics />} />
         <Route path="/app/settings" element={<Settings />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
     </Routes>
   )
 }
